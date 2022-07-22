@@ -225,8 +225,8 @@ def runCKProfiler(Map conf=[:]){
             ]),
             pipelineTriggers([
                 parameterizedCron('''
-                    @midnight %TAG=midnight
-                    @daily %TAG=daily
+                    @midnight %TAG=midnight;RUN_FULL_QA=true;USE_9110=true
+                    @daily %TAG=daily;RUN_FULL_QA=true;USE_9110=true
                 ''')
             ])
         ])
