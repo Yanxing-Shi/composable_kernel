@@ -213,6 +213,25 @@ def runCKProfiler(Map conf=[:]){
             dockerArgs = "--build-arg PREFIX=${prefixpath} --build-arg GPU_ARCH='${gpu_arch}' --build-arg compiler_version='release' "
         }
 
+
+        // select branch to run QA
+        QA_BRANCH = 'lwpck-316'
+
+        // setup cron runs only on specific branch
+        if (BRANCH_NAME == QA_BRANCH ) {
+            properties([
+            parameters([
+              string(name: 'TAG'),
+            ]),
+            pipelineTriggers([
+                parameterizedCron('''
+                    @midnight %TAG=midnight
+                    @daily %TAG=daily
+                ''')
+            ])
+        ])
+        }
+
         def variant = env.STAGE_NAME
         def retimage
 
