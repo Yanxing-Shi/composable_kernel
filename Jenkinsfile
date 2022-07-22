@@ -215,22 +215,21 @@ def runCKProfiler(Map conf=[:]){
 
 
         // select branch to run QA
-        QA_BRANCH = 'lwpck-316'
-
+        //QA_BRANCH = 'lwpck-316'
         // setup cron runs only on specific branch
-        if (BRANCH_NAME == QA_BRANCH ) {
-            properties([
-            parameters([
-              string(name: 'TAG'),
-            ]),
-            pipelineTriggers([
-                parameterizedCron('''
-                    @midnight %TAG=midnight;RUN_FULL_QA=true;USE_9110=true
-                    @daily %TAG=daily;RUN_FULL_QA=true;USE_9110=true
-                ''')
-            ])
-        ])
-        }
+        //if (BRANCH_NAME == QA_BRANCH ) {
+        //    properties([
+        //    parameters([
+        //      string(name: 'TAG'),
+        //    ]),
+        //    pipelineTriggers([
+        //        parameterizedCron('''
+        //            @midnight %TAG=midnight;RUN_FULL_QA=true;USE_9110=true
+        //            @daily %TAG=daily;RUN_FULL_QA=true;USE_9110=true
+        //        ''')
+        //    ])
+        //])
+        //}
 
         def variant = env.STAGE_NAME
         def retimage
@@ -408,13 +407,19 @@ def process_results(Map conf=[:]){
 }
 
 //launch develop branch daily at 23:00 in FULL_QA mode
-//CRON_SETTINGS = BRANCH_NAME == "develop" ? '''0 23 * * * % RUN_FULL_QA=true;USE_9110=true''' : ""
+CRON_SETTINGS = BRANCH_NAME == "lwpck-316" ? '''0 23 * * * %RUN_FULL_QA=true;USE_9110=true'''
 
 pipeline {
     agent none
-    //triggers {
-    //    cron(CRON_SETTINGS)
-    //}
+    triggers {
+        cron(CRON_SETTINGS)
+        //if (BRANCH_NAME == 'lwpck-316' ) {
+        //cron('''
+        //    # we let the build run with the default name
+        //    0 23 * * * %RUN_FULL_QA=true;USE_9110=true
+        //''')
+        //}
+    }
     options {
         parallelsAlwaysFailFast()
     }
@@ -470,49 +475,6 @@ pipeline {
                 }
             }
         }
-		stage("Tests")
-        {
-            parallel
-            {
-                stage("Run Tests: gfx908")
-                {
-                    agent{ label rocmnode("gfx908")}
-                    environment{
-                        setup_args = """ -D CMAKE_CXX_FLAGS=" --offload-arch=gfx908 -O3 " -DBUILD_DEV=On """
-                    }
-                    steps{
-                        buildHipClangJobAndReboot(setup_args:setup_args, config_targets: "check", no_reboot:true, build_type: 'Release', gpu_arch: "gfx908")
-                    }
-                }
-                stage("Run Tests: gfx90a")
-                {
-                    agent{ label rocmnode("gfx90a")}
-                    environment{
-                        setup_args = """ -D CMAKE_CXX_FLAGS="--offload-arch=gfx90a -O3 " -DBUILD_DEV=On """
-                    }
-                    steps{
-                        buildHipClangJobAndReboot(setup_args:setup_args, config_targets: "check", no_reboot:true, build_type: 'Release', gpu_arch: "gfx90a")
-                    }
-                }
-            }
-        }
-        stage("Client App")
-        {
-            parallel
-            {
-                stage("Run Client App")
-                {
-                    agent{ label rocmnode("gfx908")}
-                    environment{
-                        setup_args = """ -D  -DBUILD_DEV=Off -DCMAKE_INSTALL_PREFIX=../install CMAKE_CXX_FLAGS="--offload-arch=gfx908 -O3 " """
-                        execute_args = """ cd ../client_example && rm -rf build && mkdir build && cd build && cmake -DCMAKE_PREFIX_PATH="${env.WORKSPACE}/install;/opt/rocm" -DCMAKE_CXX_COMPILER=/opt/rocm/bin/hipcc .. && make -j """ 
-                    }
-                    steps{
-                        buildHipClangJobAndReboot(setup_args: setup_args, config_targets: "install", no_reboot:true, build_type: 'Release', execute_cmd: execute_args, prefixpath: '/usr/local')
-                    }
-                }
-            }
-        }
         stage("Performance Tests")
         {
             parallel
@@ -557,6 +519,50 @@ pipeline {
                 }
             }
         }
+        stage("Tests")
+        {
+            parallel
+            {
+                stage("Run Tests: gfx908")
+                {
+                    agent{ label rocmnode("gfx908")}
+                    environment{
+                        setup_args = """ -D CMAKE_CXX_FLAGS=" --offload-arch=gfx908 -O3 " -DBUILD_DEV=On """
+                    }
+                    steps{
+                        buildHipClangJobAndReboot(setup_args:setup_args, config_targets: "check", no_reboot:true, build_type: 'Release', gpu_arch: "gfx908")
+                    }
+                }
+                stage("Run Tests: gfx90a")
+                {
+                    agent{ label rocmnode("gfx90a")}
+                    environment{
+                        setup_args = """ -D CMAKE_CXX_FLAGS="--offload-arch=gfx90a -O3 " -DBUILD_DEV=On """
+                    }
+                    steps{
+                        buildHipClangJobAndReboot(setup_args:setup_args, config_targets: "check", no_reboot:true, build_type: 'Release', gpu_arch: "gfx90a")
+                    }
+                }
+            }
+        }
+        stage("Client App")
+        {
+            parallel
+            {
+                stage("Run Client App")
+                {
+                    agent{ label rocmnode("gfx908")}
+                    environment{
+                        setup_args = """ -D  -DBUILD_DEV=Off -DCMAKE_INSTALL_PREFIX=../install CMAKE_CXX_FLAGS="--offload-arch=gfx908 -O3 " """
+                        execute_args = """ cd ../client_example && rm -rf build && mkdir build && cd build && cmake -DCMAKE_PREFIX_PATH="${env.WORKSPACE}/install;/opt/rocm" -DCMAKE_CXX_COMPILER=/opt/rocm/bin/hipcc .. && make -j """ 
+                    }
+                    steps{
+                        buildHipClangJobAndReboot(setup_args: setup_args, config_targets: "install", no_reboot:true, build_type: 'Release', execute_cmd: execute_args, prefixpath: '/usr/local')
+                    }
+                }
+            }
+        }
+
 
         /* enable after the cmake file supports packaging
         stage("Packages") {
