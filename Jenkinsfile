@@ -412,7 +412,7 @@ CRON_SETTINGS = BRANCH_NAME == "lwpck-316" ? '''0 23 * * * %RUN_FULL_QA=true;USE
 pipeline {
     agent none
     triggers {
-        cron(CRON_SETTINGS)
+        parameterizedCron(CRON_SETTINGS)
         //if (BRANCH_NAME == 'lwpck-316' ) {
         //cron('''
         //    # we let the build run with the default name
