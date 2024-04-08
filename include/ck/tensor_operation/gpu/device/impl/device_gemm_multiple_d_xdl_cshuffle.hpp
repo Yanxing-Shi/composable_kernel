@@ -35,22 +35,22 @@ template <typename GridwiseGemm,
           bool HasMainKBlockLoop>
 __global__ void
 #if CK_USE_LAUNCH_BOUNDS
-    __launch_bounds__(CK_MAX_THREAD_PER_BLOCK, CK_MIN_BLOCK_PER_CU)
+__launch_bounds__(CK_MAX_THREAD_PER_BLOCK, CK_MIN_BLOCK_PER_CU)
 #endif
-        kernel_gemm_multiple_d_xdl_cshuffle(const ADataType* __restrict__ p_a_grid,
-                                            const BDataType* __restrict__ p_b_grid,
-                                            DsPointer p_ds_grid,
-                                            EDataType* __restrict__ p_e_grid,
-                                            const AElementwiseOperation a_element_op,
-                                            const BElementwiseOperation b_element_op,
-                                            const CDEElementwiseOperation cde_element_op,
-                                            const AGridDesc_AK0_M_AK1 a_grid_desc_ak0_m_ak1,
-                                            const BGridDesc_BK0_N_BK1 b_grid_desc_bk0_n_bk1,
-                                            const DsGridDescriptor_MBlock_MPerBlock_NBlock_NPerBlock
-                                                ds_grid_desc_mblock_mperblock_nblock_nperblock,
-                                            const EGridDescriptor_MBlock_MPerBlock_NBlock_NPerBlock
-                                                e_grid_desc_mblock_mperblock_nblock_nperblock,
-                                            const Block2ETileMap block_2_etile_map)
+    kernel_gemm_multiple_d_xdl_cshuffle(const ADataType* __restrict__ p_a_grid,
+                                        const BDataType* __restrict__ p_b_grid,
+                                        DsPointer p_ds_grid,
+                                        EDataType* __restrict__ p_e_grid,
+                                        const AElementwiseOperation a_element_op,
+                                        const BElementwiseOperation b_element_op,
+                                        const CDEElementwiseOperation cde_element_op,
+                                        const AGridDesc_AK0_M_AK1 a_grid_desc_ak0_m_ak1,
+                                        const BGridDesc_BK0_N_BK1 b_grid_desc_bk0_n_bk1,
+                                        const DsGridDescriptor_MBlock_MPerBlock_NBlock_NPerBlock
+                                            ds_grid_desc_mblock_mperblock_nblock_nperblock,
+                                        const EGridDescriptor_MBlock_MPerBlock_NBlock_NPerBlock
+                                            e_grid_desc_mblock_mperblock_nblock_nperblock,
+                                        const Block2ETileMap block_2_etile_map)
 {
 #if(!defined(__HIP_DEVICE_COMPILE__) || defined(__gfx908__) || defined(__gfx90a__) || \
     defined(__gfx94__))
@@ -498,7 +498,7 @@ struct DeviceGemmMultipleD_Xdl_CShuffle : public DeviceGemmMultipleD<ALayout,
         }
     };
 
-    static constexpr bool IsSupported(index_t MRaw_, index_t NRaw_, index_t KRaw_)
+    __host__ __device__ static bool IsSupported(index_t MRaw_, index_t NRaw_, index_t KRaw_)
     {
         // check vector load/store
         using Row = ck::tensor_layout::gemm::RowMajor;
@@ -713,11 +713,10 @@ struct DeviceGemmMultipleD_Xdl_CShuffle : public DeviceGemmMultipleD<ALayout,
     template <class ADesc, class BDesc, class DsDesc, class EDesc>
     struct Descriptor
     {
-        static constexpr auto ds_tuple()
+        static auto ds_tuple()
         {
             return transform_tuples(
-                [&](auto d) constexpr { return DeviceOp::matrix_padder.PadCDescriptor_M_N(d); },
-                DsDesc{});
+                [&](auto d) { return DeviceOp::matrix_padder.PadCDescriptor_M_N(d); }, DsDesc{});
         }
         using AGridDesc_M_K =
             remove_cvref_t<decltype(DeviceOp::matrix_padder.PadADescriptor_M_K(ADesc{}))>;
@@ -768,18 +767,17 @@ struct DeviceGemmMultipleD_Xdl_CShuffle : public DeviceGemmMultipleD<ALayout,
 
         bool has_main_k_block_loop = true;
 
-        constexpr Descriptor(ADesc a,
-                             BDesc b,
-                             DsDesc ds,
-                             EDesc e,
-                             AElementwiseOperation a_element_op_,
-                             BElementwiseOperation b_element_op_,
-                             CDEElementwiseOperation cde_element_op_)
+        __device__ Descriptor(ADesc a,
+                              BDesc b,
+                              DsDesc ds,
+                              EDesc e,
+                              AElementwiseOperation a_element_op_,
+                              BElementwiseOperation b_element_op_,
+                              CDEElementwiseOperation cde_element_op_)
             : a_grid_desc_m_k{DeviceOp::matrix_padder.PadADescriptor_M_K(a)},
               b_grid_desc_n_k{DeviceOp::matrix_padder.PadBDescriptor_N_K(b)},
               ds_grid_desc_m_n{transform_tuples(
-                  [&](auto d) constexpr { return DeviceOp::matrix_padder.PadCDescriptor_M_N(d); },
-                  ds)},
+                  [&](auto d) { return DeviceOp::matrix_padder.PadCDescriptor_M_N(d); }, ds)},
               e_grid_desc_m_n{DeviceOp::matrix_padder.PadCDescriptor_M_N(e)},
               a_grid_desc_ak0_m_ak1{
                   GridwiseGemm::MakeDefaultAGridDescriptor_AK0_M_AK1(a_grid_desc_m_k)},
@@ -788,9 +786,7 @@ struct DeviceGemmMultipleD_Xdl_CShuffle : public DeviceGemmMultipleD<ALayout,
               ds_grid_desc_mblock_mperblock_nblock_nperblock{
                   GridwiseGemm::MakeDsGridDescriptor_MBlock_MPerBlock_NBlock_NPerBlock(
                       transform_tuples(
-                          [&](auto d) constexpr {
-                              return DeviceOp::matrix_padder.PadCDescriptor_M_N(d);
-                          },
+                          [&](auto d) { return DeviceOp::matrix_padder.PadCDescriptor_M_N(d); },
                           ds))},
               e_grid_desc_mblock_mperblock_nblock_nperblock{
                   GridwiseGemm::MakeEGridDescriptor_MBlock_MPerBlock_NBlock_NPerBlock(
@@ -807,7 +803,7 @@ struct DeviceGemmMultipleD_Xdl_CShuffle : public DeviceGemmMultipleD<ALayout,
         {
         }
 
-        constexpr bool IsValid() const
+        __host__ __device__ bool IsValid() const
         {
             return GridwiseGemm::CheckValidity(a_grid_desc_m_k,
                                                b_grid_desc_n_k,
@@ -817,16 +813,13 @@ struct DeviceGemmMultipleD_Xdl_CShuffle : public DeviceGemmMultipleD<ALayout,
                    IsSupported(MRaw, NRaw, KRaw);
         }
 
-        constexpr index_t GetBlockSize() const { return BlockSize; }
+        index_t GetBlockSize() const { return BlockSize; }
 
-        constexpr index_t GetGridSize() const
-        {
-            return block_2_etile_map.CalculateGridSize(e_grid_desc_m_n);
-        }
+        index_t GetGridSize() const { return block_2_etile_map.CalculateGridSize(e_grid_desc_m_n); }
     };
 
     template <class ADesc, class BDesc, class DsDesc, class EDesc>
-    static constexpr auto
+    __host__ __device__ static auto
     make_descriptor(ADesc a,
                     BDesc b,
                     DsDesc ds,
