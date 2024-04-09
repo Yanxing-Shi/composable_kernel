@@ -504,10 +504,12 @@ struct DeviceGemmMultipleD_Xdl_CShuffle : public DeviceGemmMultipleD<ALayout,
         using Row = ck::tensor_layout::gemm::RowMajor;
         using Col = ck::tensor_layout::gemm::ColumnMajor;
         // check vector load of A
+        printf("check vector load of A\n");
         if constexpr(is_same_v<ALayout, Row> && ABlockTransferSrcVectorDim == 2)
         {
             if(KRaw_ % ABlockTransferSrcScalarPerVector != 0)
             {
+                printf("KRaw_ ABlockTransferSrcScalarPerVector false\n");
                 return false;
             }
         }
@@ -516,18 +518,22 @@ struct DeviceGemmMultipleD_Xdl_CShuffle : public DeviceGemmMultipleD<ALayout,
             // FIXME: not rigorous
             if(MRaw_ % ABlockTransferSrcScalarPerVector != 0)
             {
+                printf("MRaw_ ABlockTransferSrcScalarPerVector false\n");
                 return false;
             }
         }
         else
         {
+            printf("ssdsdsd");
             return false;
         }
         // check vector laod of B
+        printf("check vector load of B\n");
         if constexpr(is_same_v<BLayout, Col> && BBlockTransferSrcVectorDim == 2)
         {
             if(KRaw_ % BBlockTransferSrcScalarPerVector != 0)
             {
+                printf("KRaw_ BBlockTransferSrcScalarPerVector false\n");
                 return false;
             }
         }
@@ -536,16 +542,19 @@ struct DeviceGemmMultipleD_Xdl_CShuffle : public DeviceGemmMultipleD<ALayout,
             // FIXME: not rigorous
             if(NRaw_ % BBlockTransferSrcScalarPerVector != 0)
             {
+                printf("NRaw_  BBlockTransferSrcScalarPerVector false\n");
                 return false;
             }
         }
         else
         {
+            printf("------------------\n");
             return false;
         }
 
         // check vector load of Ds
         // only support RowMajor for now
+        printf("check vector load of Ds\n");
         bool all_valid = true;
 
         static_for<0, NumDTensor, 1>{}([&](auto i) {
@@ -553,12 +562,14 @@ struct DeviceGemmMultipleD_Xdl_CShuffle : public DeviceGemmMultipleD<ALayout,
 
             if constexpr(!is_same_v<DLayout, Row>)
             {
+                printf("!is_same_v<DLayout, Row>\n");
                 all_valid = false;
             }
         });
 
         if(!all_valid)
         {
+            printf("all false\n");
             return false;
         }
 
@@ -568,13 +579,16 @@ struct DeviceGemmMultipleD_Xdl_CShuffle : public DeviceGemmMultipleD<ALayout,
         {
             if(NRaw_ % CDEBlockTransferScalarPerVector_NPerBlock != 0)
             {
+                printf("NRaw_  CDEBlockTransferScalarPerVector_NPerBlock false\n");
                 return false;
             }
         }
         else
         {
+            printf("sssssssssssssssssssssssdsdsdsd");
             return false;
         }
+        printf("true\n");
         return true;
     }
 
@@ -767,13 +781,13 @@ struct DeviceGemmMultipleD_Xdl_CShuffle : public DeviceGemmMultipleD<ALayout,
 
         bool has_main_k_block_loop = true;
 
-        __device__ Descriptor(ADesc a,
-                              BDesc b,
-                              DsDesc ds,
-                              EDesc e,
-                              AElementwiseOperation a_element_op_,
-                              BElementwiseOperation b_element_op_,
-                              CDEElementwiseOperation cde_element_op_)
+        __host__ __device__ Descriptor(ADesc a,
+                                       BDesc b,
+                                       DsDesc ds,
+                                       EDesc e,
+                                       AElementwiseOperation a_element_op_,
+                                       BElementwiseOperation b_element_op_,
+                                       CDEElementwiseOperation cde_element_op_)
             : a_grid_desc_m_k{DeviceOp::matrix_padder.PadADescriptor_M_K(a)},
               b_grid_desc_n_k{DeviceOp::matrix_padder.PadBDescriptor_N_K(b)},
               ds_grid_desc_m_n{transform_tuples(
@@ -805,6 +819,13 @@ struct DeviceGemmMultipleD_Xdl_CShuffle : public DeviceGemmMultipleD<ALayout,
 
         __host__ __device__ bool IsValid() const
         {
+            printf("is supported %d\n", IsSupported(MRaw, NRaw, KRaw));
+            printf("is supported 2 %d\n",
+                   GridwiseGemm::CheckValidity(a_grid_desc_m_k,
+                                               b_grid_desc_n_k,
+                                               ds_grid_desc_m_n,
+                                               e_grid_desc_m_n,
+                                               block_2_etile_map));
             return GridwiseGemm::CheckValidity(a_grid_desc_m_k,
                                                b_grid_desc_n_k,
                                                ds_grid_desc_m_n,
@@ -843,6 +864,7 @@ struct DeviceGemmMultipleD_Xdl_CShuffle : public DeviceGemmMultipleD<ALayout,
         assert(desc.IsValid());
         if(desc.has_main_k_block_loop)
         {
+            printf("run1\n");
             GridwiseGemm::template Run<true>(p_a_grid,
                                              p_b_grid,
                                              p_ds_grid,
@@ -859,6 +881,7 @@ struct DeviceGemmMultipleD_Xdl_CShuffle : public DeviceGemmMultipleD<ALayout,
         }
         else
         {
+            printf("runing--------------------------------------------------------\n");
             GridwiseGemm::template Run<false>(p_a_grid,
                                               p_b_grid,
                                               p_ds_grid,
