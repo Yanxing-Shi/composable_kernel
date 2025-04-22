@@ -10,12 +10,13 @@ void gemm_kernel_launch(ck_tile::DeviceMem& c_m_n_dev_buf,
                         ck_tile::HostTensor<CDataType>& c_m_n_host_result,
                         ck_tile::HostTensor<CDataType>& c_m_n_dev_result,
                         int verify,
+                        int metric,
                         KernelTraits& trait,
                         ck_tile::GemmHostArgs& args,
                         const ck_tile::stream_config& s)
 {
     return GemmDispatcher::dispatch(
-        c_m_n_dev_buf, c_m_n_host_result, c_m_n_dev_result, verify, trait, args, s);
+        c_m_n_dev_buf, c_m_n_host_result, c_m_n_dev_result, verify, metric, trait, args, s);
 }
 
 template <typename ADataType,
@@ -43,6 +44,7 @@ void run(const ck_tile::ArgParser& arg_parser)
     int n_repeat                 = arg_parser.get_int("repeat");
     int verify                   = arg_parser.get_int("v");
     ck_tile::index_t init_method = arg_parser.get_int("init");
+    ck_tile::index_t metric      = arg_parser.get_int("metric");
 
     stride_A = ck_tile::get_default_stride(M, K, stride_A, is_row_major(a_layout));
     stride_B = ck_tile::get_default_stride(K, N, stride_B, is_row_major(b_layout));
@@ -153,6 +155,7 @@ void run(const ck_tile::ArgParser& arg_parser)
                        c_m_n_host_result,
                        c_m_n_dev_result,
                        verify,
+                       metric,
                        trait,
                        gemm_args,
                        ck_tile::stream_config{nullptr, true, 1, n_warmup, n_repeat});

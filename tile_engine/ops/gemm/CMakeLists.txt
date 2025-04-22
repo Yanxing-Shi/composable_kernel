@@ -1,28 +1,28 @@
 
 
 # generate a list of kernels, but not actually emit files at config stage
-execute_process(
-    COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_LIST_DIR}/gemm_instance_builder.py
-            --working_path ${CMAKE_CURRENT_BINARY_DIR}
-            --json ${CMAKE_CURRENT_LIST_DIR}/configs/instance_combination.json
-            --list_blobs
-            RESULT_VARIABLE ret
-)
+# execute_process(
+#     COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_LIST_DIR}/gemm_instance_builder.py
+#             --working_path ${CMAKE_CURRENT_BINARY_DIR}
+#             --json ${CMAKE_CURRENT_LIST_DIR}/configs/instance_combination.json
+#             --list_blobs
+#             RESULT_VARIABLE ret
+# )
 
-if(ret AND NOT ret EQUAL 0)
-  message( FATAL_ERROR "Fail to generate kernels via Python. ${ret}")
-endif()
+# if(ret AND NOT ret EQUAL 0)
+#   message( FATAL_ERROR "Fail to generate kernels via Python. ${ret}")
+# endif()
 
-file(STRINGS ${CMAKE_CURRENT_BINARY_DIR}/gemm_instance_blobs.txt GEMM_CODEGEN_BLOBS)
+# file(STRINGS ${CMAKE_CURRENT_BINARY_DIR}/gemm_instance_blobs.txt GEMM_CODEGEN_BLOBS)
 
-add_custom_command(
-    OUTPUT  ${GEMM_CODEGEN_BLOBS}
-    COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_LIST_DIR}/gemm_instance_builder.py
-            --working_path ${CMAKE_CURRENT_BINARY_DIR}
-            --json ${CMAKE_CURRENT_LIST_DIR}/configs/instance_combination.json
-            --gen_blobs
-    DEPENDS ${GEMM_CODEGEN_BLOBS}
-)
+# add_custom_command(
+#     OUTPUT  ${GEMM_CODEGEN_BLOBS}
+#     COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_LIST_DIR}/gemm_instance_builder.py
+#             --working_path ${CMAKE_CURRENT_BINARY_DIR}
+#             --json ${CMAKE_CURRENT_LIST_DIR}/configs/instance_combination.json
+#             --gen_blobs
+#     DEPENDS ${GEMM_CODEGEN_BLOBS}
+# )
 
 set(EXECUTABLE_GEMM_INSTANCE "tile_engine_gemm")
 message("adding example ${EXECUTABLE_GEMM_INSTANCE}")
