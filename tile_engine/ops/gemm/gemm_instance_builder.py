@@ -456,7 +456,7 @@ struct GemmKernel {{
                 "PaddingK: " + "{kPadK}" + ", " +
                 "Pipeline: " + "{pipeline}" + ", " +
                 "Epilogue: " + "{epilogue}" + ", " +
-                "Scheduler: " + "{scheduler}";
+                "Scheduler: " + "{scheduler}">;
                 }}
 }};
 """

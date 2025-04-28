@@ -28,9 +28,11 @@ set(EXECUTABLE_GEMM_INSTANCE "tile_engine_gemm")
 message("adding example ${EXECUTABLE_GEMM_INSTANCE}")
 
 # use build as include directory
+find_package(SQLite3 REQUIRED)
 include_directories(${CMAKE_CURRENT_BINARY_DIR})
 add_executable(${EXECUTABLE_GEMM_INSTANCE} EXCLUDE_FROM_ALL gemm_host_api.cpp)
 target_include_directories(${EXECUTABLE_GEMM_INSTANCE} PRIVATE ${CMAKE_CURRENT_LIST_DIR})
+target_link_libraries(${EXECUTABLE_GEMM_INSTANCE} SQLite::SQLite3)
 target_sources(${EXECUTABLE_GEMM_INSTANCE} PRIVATE ${GEMM_CODEGEN_BLOBS})
 
 set(EXECUTABLE_GEMM_INSTANCE_COMPILE_OPTIONS)

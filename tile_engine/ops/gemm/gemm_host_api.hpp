@@ -12,6 +12,138 @@
 
 #pragma once
 
+enum class Metric
+{
+    LATENCY   = 0,
+    TFLOPS    = 1,
+    BANDWIDTH = 2
+};
+
+// static constexpr const char* metric_names[] = {"latency", "tflops", "bandwidth"};
+
+// Metric str_to_metric(const std::string& str) {
+//     for (int i = 0; i < 3; ++i) {
+//         if (str == metric_names[i]) return static_cast<Metric>(i);
+//     }
+//     throw std::invalid_argument("Invalid Metric string"); 
+// }
+
+// std::string metric_to_str(Metric value) {
+//     return metric_names[static_cast<int>(value)];
+// }
+
+inline constexpr auto get_metric_name(Metric m) {
+    switch(m) {
+        case Metric::LATENCY: return "latency";
+        case Metric::TFLOPS: return "tflops";
+        case Metric::BANDWIDTH: return "bandwidth";
+    }
+    return "unknown";
+}
+
+struct GemmProblem
+{
+    int split_k;
+    int m, n, k;
+    int stride_a, stride_b, stride_c;
+
+    std::string dtype_a, dtype_b, dtype_acc, dtype_c;
+    std::string layout_a, layout_b, layout_c;
+
+    std::string serialize() const
+    {
+        std::ostringstream oss;
+        oss << "{"
+            << "\"split_k\":" << split_k << ","
+            << "\"m\":" << m << ","
+            << "\"n\":" << n << ","
+            << "\"k\":" << k << ","
+            << "\"stride_a\":" << stride_a << ","
+            << "\"stride_b\":" << stride_b << ","
+            << "\"stride_c\":" << stride_c << ","
+            << "\"dtype_a\":\"" << dtype_a << "\","
+            << "\"dtype_b\":\"" << dtype_b << "\","
+            << "\"dtype_acc\":\"" << dtype_acc << "\","
+            << "\"dtype_c\":\"" << dtype_c << "\","
+            << "\"layout_a\":\"" << layout_a << "\","
+            << "\"layout_b\":\"" << layout_b << "\","
+            << "\"layout_c\":\"" << layout_c << "\""
+            << "}";
+        return oss.str();
+    }
+};
+
+struct PerformanceResult
+{
+    double latency;
+    double tflops;
+    double bandwidth;
+
+    static constexpr bool
+    compare(const PerformanceResult& a, const PerformanceResult& b, Metric m) noexcept
+    {
+        switch(m)
+        {
+        case Metric::LATENCY: return a.latency < b.latency;
+        case Metric::TFLOPS: return a.tflops > b.tflops;
+        case Metric::BANDWIDTH: return a.bandwidth > b.bandwidth;
+        }
+        return false;
+    }
+
+    std::string serialize() const
+    {
+        std::ostringstream oss;
+        oss << "{"
+            << "\"latency(ms)\":" << latency << ","
+            << "\"tflops(TFlops)\":" << tflops << ","
+            << "\"bandwidth(GB/s)\":" << bandwidth << "}";
+        return oss.str();
+    }
+};
+
+struct Environment
+{
+    std::string rocm_version;
+    std::string commit_id;
+    std::string device_name;
+
+    std::string serialize() const
+    {
+        std::ostringstream oss;
+        oss << "{"
+            << "\"rocm_version\":\"" << rocm_version << "\","
+            << "\"commit_id\":\"" << commit_id << "\","
+            << "\"device_name\":\"" << device_name << "\""
+            << "}";
+        return oss.str();
+    }
+};
+
+struct KernelInstance
+{
+    Environment env;
+    std::string name;
+    GemmProblem problem;
+    PerformanceResult perf_result;
+
+    static constexpr bool
+    compare(const KernelInstance& a, const KernelInstance& b, Metric m) noexcept
+    {
+        return PerformanceResult::compare(a.perf_result, b.perf_result, m);
+    }
+
+    friend std::ostream& operator<<(std::ostream& os, const KernelInstance& obj)
+    {
+        os << "{"
+           << "\"env\":" << obj.env.serialize() << ","
+           << "\"name\":\"" << obj.name << "\","
+           << "\"problem\":" << obj.problem.serialize() << ","
+           << "\"perf_result\":" << obj.perf_result.serialize() << "}";
+        return os;
+    }
+};
+
 template <typename T>
 struct DataTypeTraits;
 
@@ -114,11 +246,17 @@ inline auto create_args(int argc, char* argv[])
         .insert("stride_c", "0", "Tensor C stride")
         .insert("split_k", "1", "splitK value")
         .insert("v", "2", "0. No validation, 1. Validation on CPU, 2. Validation on GPU")
-        .insert("metric", "0:LATENCY", "0:LATENCY, 1:TFLOPS, 2:BANDWIDTH")
         .insert("warmup", "50", "number of iterations before benchmark the kernel")
         .insert("repeat", "100", "number of iterations to benchmark the kernel")
         .insert("timer", "gpu", "gpu:gpu timer, cpu:cpu timer")
         .insert("init", "0", "0:random, 1:linear, 2:constant(1)")
+        .insert("metric", "latency", "latency, tflops, bandwidth")
+        .insert("enable_profile_cache",
+                "false",
+                "whether use profile cache or not when benchmark kernel")
+        .insert("flush_profile_cache",
+                "false",
+                "whether flush profile cache or not when benchmark kernel")
         .insert("pipeline", "compv3", "compv3, compv4, mem")
         .insert("scheduler", "intrawave", "intrawave, interwave")
         .insert("epilogue", "cshuffle", "cshuffle, default")
@@ -186,7 +324,7 @@ void permute_vectors_i4x4_b(Tensor& tensor)
 }
 
 /// @brief Function to compare the results of the device and host computations
-void compare(ck_tile::index_t K,
+bool compare(ck_tile::index_t K,
              ck_tile::index_t kbatch,
              ck_tile::HostTensor<CDataType>& c_m_n_dev_result,
              ck_tile::HostTensor<CDataType>& c_m_n_host_result)
@@ -204,6 +342,8 @@ void compare(ck_tile::index_t K,
     std::cout << "Relative error threshold: " << rtol_atol.at(ck_tile::number<0>{})
               << " Absolute error threshold: " << rtol_atol.at(ck_tile::number<1>{}) << std::endl;
     std::cout << "The verification result is:" << (pass ? "correct" : "fail") << std::endl;
+
+    return pass;
 }
 
 /// @brief Function to get the kernel output with reference implementation on CPU/GPU
